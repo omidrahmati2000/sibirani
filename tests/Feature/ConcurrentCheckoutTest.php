@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\InsufficientStockException;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\CheckoutService;
@@ -26,6 +27,7 @@ class ConcurrentCheckoutTest extends TestCase
         DB::disconnect();
 
         $pids = [];
+        $resultFiles = [];
 
         foreach ($users as $user) {
             $pid = pcntl_fork();
@@ -38,16 +40,31 @@ class ConcurrentCheckoutTest extends TestCase
                 // Child process: fresh connection, attempt to buy 1 unit.
                 DB::reconnect();
 
+                $resultFile = sys_get_temp_dir() . '/checkout_child_' . getmypid() . '.json';
+
+                $succeeded = false;
+                $exceptionClass = null;
+
                 try {
                     app(CheckoutService::class)->checkout($user, $product->id, 1);
-                } catch (\Throwable) {
+                    $succeeded = true;
+                } catch (\Throwable $e) {
                     // Expected for buyers that lose the race once stock hits 0.
+                    $exceptionClass = get_class($e);
                 }
+
+                // Child processes can't return PHP values to the parent, so
+                // persist the outcome to a file the parent reads after waitpid.
+                file_put_contents($resultFile, json_encode([
+                    'succeeded' => $succeeded,
+                    'exception_class' => $exceptionClass,
+                ]));
 
                 exit(0);
             }
 
             $pids[] = $pid;
+            $resultFiles[] = sys_get_temp_dir() . '/checkout_child_' . $pid . '.json';
         }
 
         foreach ($pids as $pid) {
@@ -55,6 +72,13 @@ class ConcurrentCheckoutTest extends TestCase
         }
 
         DB::reconnect();
+
+        $results = [];
+        foreach ($resultFiles as $resultFile) {
+            $this->assertFileExists($resultFile, 'Every child process must have written its result file.');
+            $results[] = json_decode(file_get_contents($resultFile), true);
+            unlink($resultFile);
+        }
 
         $product->refresh();
 
@@ -64,5 +88,20 @@ class ConcurrentCheckoutTest extends TestCase
             \App\Models\Order::where('product_id', $product->id)->count(),
             'Exactly as many orders as available stock must have been created — no oversell.'
         );
+
+        foreach ($results as $result) {
+            if ($result['succeeded']) {
+                continue;
+            }
+
+            // Losing buyers must fail with the clean, intended exception — not
+            // a raw QueryException from the unsignedInteger column constraint,
+            // which is what happens if ->lockForUpdate() is removed.
+            $this->assertSame(
+                InsufficientStockException::class,
+                $result['exception_class'],
+                'Losing buyers must fail with InsufficientStockException, not a raw DB error.'
+            );
+        }
     }
 }
