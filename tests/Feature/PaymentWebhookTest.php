@@ -50,4 +50,22 @@ class PaymentWebhookTest extends TestCase
         $this->assertSame(OrderStatus::Pending, $order->fresh()->status);
         Queue::assertNotPushed(DeliverAccountJob::class);
     }
+
+    public function test_missing_webhook_secret_fails_closed_with_500(): void
+    {
+        Queue::fake();
+
+        config(['services.payment_gateway.webhook_secret' => '']);
+
+        $order = Order::factory()->create(['status' => OrderStatus::Pending]);
+        $body = json_encode(['order_id' => $order->id, 'reference' => 'pg_ref_123']);
+        $signature = hash_hmac('sha256', $body, '');
+
+        $response = $this->call('POST', '/api/webhooks/payment', [], [], [],
+            ['HTTP_X-Signature' => $signature, 'CONTENT_TYPE' => 'application/json'], $body);
+
+        $response->assertStatus(500);
+        $this->assertSame(OrderStatus::Pending, $order->fresh()->status);
+        Queue::assertNotPushed(DeliverAccountJob::class);
+    }
 }

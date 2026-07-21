@@ -13,6 +13,10 @@ class VerifyWebhookSignature
         $signature = $request->header('X-Signature', '');
         $secret = (string) config('services.payment_gateway.webhook_secret');
 
+        if ($secret === '') {
+            return response()->json(['message' => 'Webhook secret not configured.'], 500);
+        }
+
         $expected = hash_hmac('sha256', $request->getContent(), $secret);
 
         if (! hash_equals($expected, (string) $signature)) {
