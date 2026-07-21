@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Exceptions\InsufficientStockException;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\CheckoutService;
@@ -56,17 +55,22 @@ class ConcurrentCheckoutTest extends TestCase
                 $resultFile = sys_get_temp_dir() . '/checkout_child_' . getmypid() . '.json';
 
                 $succeeded = false;
+                $status = null;
                 $exceptionClass = null;
 
                 try {
+                    // CheckoutService::checkout() no longer throws for
+                    // insufficient stock — it returns a 422 body instead.
+                    // Record the real, actual outcome (status code, or a
+                    // genuinely thrown exception's class) rather than
+                    // synthesizing an exception from the status code, so this
+                    // test reflects real behavior instead of a tautology.
                     $result = app(CheckoutService::class)->checkout($user, $product->id, 1, (string) Str::uuid());
                     $succeeded = $result['status'] === 201;
-
-                    if (! $succeeded) {
-                        throw new InsufficientStockException();
-                    }
+                    $status = $result['status'];
                 } catch (\Throwable $e) {
-                    // Expected for buyers that lose the race once stock hits 0.
+                    // Not expected in the current implementation, but if some
+                    // other real error path throws, capture it honestly.
                     $exceptionClass = get_class($e);
                 }
 
@@ -74,6 +78,7 @@ class ConcurrentCheckoutTest extends TestCase
                 // persist the outcome to a file the parent reads after waitpid.
                 file_put_contents($resultFile, json_encode([
                     'succeeded' => $succeeded,
+                    'status' => $status,
                     'exception_class' => $exceptionClass,
                 ]));
 
@@ -111,13 +116,21 @@ class ConcurrentCheckoutTest extends TestCase
                 continue;
             }
 
-            // Losing buyers must fail with the clean, intended exception — not
-            // a raw QueryException from the unsignedInteger column constraint,
-            // which is what happens if ->lockForUpdate() is removed.
-            $this->assertSame(
-                InsufficientStockException::class,
+            // Losing buyers must get a clean 422 insufficient-stock response
+            // from CheckoutService, not an unhandled exception (e.g. a raw
+            // QueryException from the unsignedInteger column constraint,
+            // which is what happens if ->lockForUpdate() is removed) and not
+            // an unrelated status such as a 409 from the idempotency race
+            // path (each child uses a unique idempotency key, so 409 should
+            // never occur here).
+            $this->assertNull(
                 $result['exception_class'],
-                'Losing buyers must fail with InsufficientStockException, not a raw DB error.'
+                'Losing buyers must not throw — CheckoutService should catch InsufficientStockException internally and return a 422 body.'
+            );
+            $this->assertSame(
+                422,
+                $result['status'],
+                'Losing buyers must receive a 422 insufficient-stock response, not a raw DB error or other status.'
             );
         }
     }

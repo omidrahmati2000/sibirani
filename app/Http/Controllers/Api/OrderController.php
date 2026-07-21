@@ -19,7 +19,7 @@ class OrderController extends Controller
             $request->user(),
             (int) $request->validated('product_id'),
             (int) $request->validated('quantity'),
-            $request->header('Idempotency-Key'),
+            trim((string) $request->header('Idempotency-Key')),
         );
 
         return response()->json($result['body'], $result['status']);
