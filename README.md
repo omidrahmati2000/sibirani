@@ -72,7 +72,7 @@ such database" otherwise:
 ./vendor/bin/sail test
 ```
 
-Current status: **20/20 tests passing** (Checkout, ConcurrentCheckout,
+Current status: **21/21 tests passing** (Checkout, ConcurrentCheckout,
 AccountDeliveryJob, Idempotency, PaymentWebhook, OrderAuthorization, plus
 model/unit tests).
 
@@ -151,6 +151,24 @@ assertions, so they don't need this):
 - **No user registration/login endpoint.** Not requested by the assignment,
   so it's out of scope; see "Manual/local testing" above for the tinker-based
   token workflow instead.
+- **Cancel/refund are minimal status transitions.** `OrderController::cancel()`
+  /`refund()` just overwrite `status` to `Cancelled`/`Refunded` — they do
+  **not** restore decremented stock back to the product, and there's no
+  state-machine validation (e.g. an admin could technically call `refund` on
+  an order that was never paid, or `cancel` an order that's already been
+  delivered). This is a deliberate scope cut for the take-home, not an
+  oversight — a production system would need inventory-return logic and
+  valid-transition guards (e.g. only `Paid` → `Refunded`, only
+  `Pending`/`Paid` → `Cancelled`).
+- **Delivered account credentials are stored but never exposed via the API.**
+  `DeliverAccountJob` stores the simulated Apple ID + temporary password in
+  `orders.delivery_payload`, but `OrderResource` (used by
+  `GET /api/orders/{order}`) deliberately omits that field, so there's
+  currently no endpoint that returns the purchased credentials to the buyer.
+  This is intentionally incomplete for the take-home — a real system would
+  need to expose `delivery_payload` on the order-owner's `show` response (and
+  probably nowhere else, to limit blast radius if an admin token leaks) once
+  the delivery flow is considered final.
 
 ## What's implemented
 
@@ -166,7 +184,7 @@ assertions, so they don't need this):
   retry/backoff and a `Failed` terminal state after exhausting attempts.
 - Policy-based authorization for order actions (view/cancel/refund),
   admin vs. customer roles.
-- Full automated test suite: 20/20 passing, covering checkout, concurrent
+- Full automated test suite: 21/21 passing, covering checkout, concurrent
   checkout, idempotency, webhook validation, delivery job retries, and
   authorization.
 
