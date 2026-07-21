@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'idempotency.required' => \App\Http\Middleware\RequireIdempotencyKey::class,
+            'webhook.signature' => \App\Http\Middleware\VerifyWebhookSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
