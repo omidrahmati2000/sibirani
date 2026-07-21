@@ -8,11 +8,24 @@ use App\Models\User;
 use App\Services\CheckoutService;
 use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ConcurrentCheckoutTest extends TestCase
 {
     use DatabaseTruncation;
+
+    // Forked children commit directly to the DB outside any test
+    // transaction, so the rows this test creates survive past its own
+    // teardown and would otherwise leak into later tests that assert
+    // absolute counts (e.g. IdempotencyTest). Truncate again on the way
+    // out so this test leaves the database exactly as clean as it found it.
+    protected function tearDown(): void
+    {
+        $this->truncateDatabaseTables();
+
+        parent::tearDown();
+    }
 
     public function test_concurrent_checkouts_cannot_oversell_the_last_units(): void
     {
@@ -46,8 +59,12 @@ class ConcurrentCheckoutTest extends TestCase
                 $exceptionClass = null;
 
                 try {
-                    app(CheckoutService::class)->checkout($user, $product->id, 1);
-                    $succeeded = true;
+                    $result = app(CheckoutService::class)->checkout($user, $product->id, 1, (string) Str::uuid());
+                    $succeeded = $result['status'] === 201;
+
+                    if (! $succeeded) {
+                        throw new InsufficientStockException();
+                    }
                 } catch (\Throwable $e) {
                     // Expected for buyers that lose the race once stock hits 0.
                     $exceptionClass = get_class($e);
