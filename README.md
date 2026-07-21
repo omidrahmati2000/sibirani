@@ -39,28 +39,19 @@ before this is ever used against a live payment gateway.**
 
 ### Test environment
 
-`.env.testing` is **not** committed (it's gitignored, like `.env`), so create
-it yourself before running the suite:
+No separate `.env.testing` file is required — `phpunit.xml` already overrides
+`APP_ENV=testing`, `DB_DATABASE=apple_store_testing`, `CACHE_STORE=array`,
+`SESSION_DRIVER=array`, and `QUEUE_CONNECTION=database` for the test run, and
+falls back to your `.env` for everything else (DB host/user/password, the
+webhook secret, etc.), which already points at Sail's `mysql` container. This
+was verified by running the full suite with no `.env.testing` present at all
+— 21/21 still pass. (An earlier draft of this README had you hand-write an
+`.env.testing` file; that step turned out to be redundant once `phpunit.xml`'s
+overrides were in place, so it's been removed here.)
 
-```bash
-cat > .env.testing <<'EOF'
-APP_ENV=testing
-APP_KEY=base64:GENERATE_YOUR_OWN_OR_COPY_FROM_.env
-DB_CONNECTION=mysql
-DB_HOST=mysql
-DB_PORT=3306
-DB_DATABASE=apple_store_testing
-DB_USERNAME=sail
-DB_PASSWORD=password
-QUEUE_CONNECTION=database
-CACHE_STORE=array
-SESSION_DRIVER=array
-PAYMENT_WEBHOOK_SECRET=test-secret-do-not-use-in-real-life
-EOF
-```
-
-Then create the test database itself — the test suite will fail with "no
-such database" otherwise:
+You do still need to create the separate test **database** itself — the
+suite will fail with "no such database" otherwise, since `phpunit.xml` points
+it at `apple_store_testing`, not your main `apple_store` database:
 
 ```bash
 ./vendor/bin/sail mysql -e "CREATE DATABASE IF NOT EXISTS apple_store_testing"
