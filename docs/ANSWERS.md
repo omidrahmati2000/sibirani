@@ -92,9 +92,10 @@ scrutiny in a store like this.
   where the strings differ.
 - **Fail-closed on a missing/misconfigured secret.** If
   `PAYMENT_WEBHOOK_SECRET` isn't configured, the middleware rejects the
-  request (401) rather than falling back to "no verification" — a common
-  real-world bug where an unset env var silently disables auth. This is
-  deliberately fail-closed rather than fail-open.
+  request (500, a distinct config-error status from the 401 used for a
+  genuine signature mismatch) rather than falling back to "no verification"
+  — a common real-world bug where an unset env var silently disables auth.
+  This is deliberately fail-closed rather than fail-open.
 - **Idempotent, order-state-aware processing.** The webhook handler
   re-validates the order's current state before applying the payment, so a
   legitimately-signed but duplicated/replayed webhook call (e.g. the gateway

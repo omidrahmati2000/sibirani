@@ -1,9 +1,12 @@
 # Apple Store — Backend Take-Home
 
-A Laravel API for a small digital-goods store: browse products, check out with
+A Laravel API for a small digital-goods store: check out a product with
 safe (no-oversell) stock decrement, pay via an HMAC-verified webhook, and get
 the purchased account details delivered asynchronously. Built with
-Sanctum-based auth and Policy-based authorization.
+Sanctum-based auth and Policy-based authorization. (There is no product
+listing/browsing endpoint — products are seeded via `DatabaseSeeder` and
+referenced by ID; a `GET /api/products` endpoint was not part of the
+assignment's core requirements and wasn't built.)
 
 ## Stack
 
@@ -151,9 +154,10 @@ assertions, so they don't need this):
 
 ## What's implemented
 
-- Product listing, checkout with pessimistic row locking (`lockForUpdate`)
+- Checkout (`POST /api/orders`) with pessimistic row locking (`lockForUpdate`)
   to prevent overselling under concurrent requests, proven with a real
-  forked-process concurrency test (not just mocked).
+  forked-process concurrency test (not just mocked). Products themselves are
+  seeded, not browsable via an API endpoint — see note above.
 - Idempotency-Key support on checkout (required header, 422 if absent,
   cached response replay on retry).
 - HMAC-signed payment webhook (`POST /api/webhooks/payment`) with
@@ -172,7 +176,8 @@ Per the assignment's own stated priority order, these optional/lower-priority
 items were **not** implemented:
 
 - **Rate limiting** on checkout/webhook endpoints.
-- **Redis caching** of the product listing endpoint.
+- **A product listing endpoint** (and any Redis caching of it) — products
+  are seeded and referenced by ID only, per the note above.
 - **Structured logging** (dedicated log channel + structured context for
   order/webhook/delivery lifecycle events).
 - **OpenAPI/Postman documentation** of the API surface.
