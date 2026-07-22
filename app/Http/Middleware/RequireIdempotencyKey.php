@@ -10,7 +10,9 @@ class RequireIdempotencyKey
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->hasHeader('Idempotency-Key') || trim($request->header('Idempotency-Key')) === '') {
+        $key = trim((string) $request->header('Idempotency-Key'));
+
+        if ($key === '' || strlen($key) > 255) {
             return response()->json(['message' => 'The Idempotency-Key header is required.'], 422);
         }
 
