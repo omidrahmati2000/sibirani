@@ -26,9 +26,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Product::factory()->createMany([
-            ['name' => 'Apple ID (US Region)', 'slug' => 'apple-id-us', 'price_cents' => 1999, 'stock' => 5],
-            ['name' => 'Netflix Premium Subscription (1 Month)', 'slug' => 'netflix-premium-1m', 'price_cents' => 999, 'stock' => 20],
-            ['name' => 'Spotify Family Subscription (1 Month)', 'slug' => 'spotify-family-1m', 'price_cents' => 799, 'stock' => 0],
+            ['name' => 'Apple ID (US Region)', 'slug' => 'apple-id-us', 'price_rials' => 1999, 'stock' => 5],
+            ['name' => 'Netflix Premium Subscription (1 Month)', 'slug' => 'netflix-premium-1m', 'price_rials' => 999, 'stock' => 20],
+            ['name' => 'Spotify Family Subscription (1 Month)', 'slug' => 'spotify-family-1m', 'price_rials' => 799, 'stock' => 0],
         ]);
     }
 }

@@ -18,8 +18,8 @@ class OrderFactory extends Factory
             'user_id' => User::factory(),
             'product_id' => $product->id,
             'quantity' => $quantity,
-            'unit_price_cents' => $product->price_cents,
-            'total_cents' => $product->price_cents * $quantity,
+            'unit_price_rials' => $product->price_rials,
+            'total_rials' => $product->price_rials * $quantity,
             'status' => OrderStatus::Pending,
         ];
     }

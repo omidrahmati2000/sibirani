@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
-            $table->unsignedInteger('price_cents');
+            $table->unsignedBigInteger('price_rials');
             $table->unsignedInteger('stock')->default(0);
             $table->timestamps();
         });

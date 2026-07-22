@@ -16,8 +16,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained();
             $table->unsignedInteger('quantity');
-            $table->unsignedInteger('unit_price_cents');
-            $table->unsignedInteger('total_cents');
+            $table->unsignedBigInteger('unit_price_rials');
+            $table->unsignedBigInteger('total_rials');
             $table->string('status')->default('pending');
             $table->string('payment_reference')->nullable();
             $table->timestamp('paid_at')->nullable();
