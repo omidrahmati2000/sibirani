@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
             $table->foreignId('product_id')->constrained();
             $table->unsignedInteger('quantity');
             $table->unsignedBigInteger('unit_price_rials');
@@ -25,6 +25,8 @@ return new class extends Migration
             $table->json('delivery_payload')->nullable();
             $table->timestamp('delivered_at')->nullable();
             $table->timestamps();
+
+            $table->index(['user_id', 'created_at']);
         });
     }
 
