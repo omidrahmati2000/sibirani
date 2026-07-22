@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 class ProductFactory extends Factory
 {
@@ -12,7 +13,7 @@ class ProductFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => \Illuminate\Support\Str::slug($name).'-'.fake()->unique()->numberBetween(1, 999999),
+            'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1, 999999),
             'price_rials' => fake()->numberBetween(500, 20000),
             'stock' => fake()->numberBetween(0, 50),
         ];

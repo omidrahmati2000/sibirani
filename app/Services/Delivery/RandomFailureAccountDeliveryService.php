@@ -12,8 +12,7 @@ class RandomFailureAccountDeliveryService implements AccountDeliveryService
         private readonly int $minLatencyMs = 200,
         private readonly int $maxLatencyMs = 800,
         private readonly float $failureRate = 0.3,
-    ) {
-    }
+    ) {}
 
     public function deliver(Order $order): array
     {

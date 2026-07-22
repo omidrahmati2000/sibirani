@@ -2,6 +2,4 @@
 
 namespace App\Exceptions;
 
-class AccountDeliveryFailedException extends \RuntimeException
-{
-}
+class AccountDeliveryFailedException extends \RuntimeException {}

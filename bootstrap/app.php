@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\RequireIdempotencyKey;
+use App\Http\Middleware\VerifyWebhookSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,8 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'idempotency.required' => \App\Http\Middleware\RequireIdempotencyKey::class,
-            'webhook.signature' => \App\Http\Middleware\VerifyWebhookSignature::class,
+            'idempotency.required' => RequireIdempotencyKey::class,
+            'webhook.signature' => VerifyWebhookSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
