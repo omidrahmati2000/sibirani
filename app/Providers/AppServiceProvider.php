@@ -2,6 +2,14 @@
 
 namespace App\Providers;
 
+use App\Contracts\AccountDeliveryService;
+use App\Models\Order;
+use App\Policies\OrderPolicy;
+use App\Services\Delivery\RandomFailureAccountDeliveryService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,8 +20,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(
-            \App\Contracts\AccountDeliveryService::class,
-            \App\Services\Delivery\RandomFailureAccountDeliveryService::class,
+            AccountDeliveryService::class,
+            RandomFailureAccountDeliveryService::class,
         );
     }
 
@@ -22,6 +30,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        \Illuminate\Support\Facades\Gate::policy(\App\Models\Order::class, \App\Policies\OrderPolicy::class);
+        Gate::policy(Order::class, OrderPolicy::class);
+
+        RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(10)
+            ->by((string) ($request->user()?->id ?? $request->ip())));
+
+        RateLimiter::for('payment-webhook', fn (Request $request) => Limit::perMinute(60)
+            ->by((string) $request->ip()));
+
+        RateLimiter::for('products', fn (Request $request) => Limit::perMinute(30)
+            ->by((string) $request->ip()));
     }
 }

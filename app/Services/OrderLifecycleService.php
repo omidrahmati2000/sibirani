@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class OrderLifecycleService
 {
+    public function __construct(private readonly ProductCatalogCache $productCatalogCache) {}
+
     public function cancel(Order $order): Order
     {
         return DB::transaction(function () use ($order): Order {
@@ -23,6 +25,7 @@ class OrderLifecycleService
 
             $product = Product::query()->whereKey($lockedOrder->product_id)->lockForUpdate()->firstOrFail();
             $product->increment('stock', $lockedOrder->quantity);
+            DB::afterCommit(fn () => $this->productCatalogCache->forget());
 
             $lockedOrder->update(['status' => OrderStatus::Cancelled]);
 

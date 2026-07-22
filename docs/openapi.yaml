@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: Apple Store API
+  version: 1.0.0
+  description: API for inventory-backed digital-goods checkout and delivery.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/products:
+    get:
+      summary: List products
+      responses:
+        '200':
+          description: Product catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Product'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/orders:
+    get:
+      summary: List visible orders
+      security: [{sanctum: []}]
+      responses:
+        '200':
+          description: Paginated orders
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaginatedOrders'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+    post:
+      summary: Create an order
+      security: [{sanctum: []}]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id, quantity]
+              properties:
+                product_id: {type: integer, minimum: 1, example: 1}
+                quantity: {type: integer, minimum: 1, example: 1}
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderResponse'}
+        '409': {description: Idempotency key conflict}
+        '422': {description: Validation or insufficient stock}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/orders/{order}:
+    get:
+      summary: Show an order
+      security: [{sanctum: []}]
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderResponse'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/orders/{order}/cancel:
+    post:
+      summary: Cancel an order
+      security: [{sanctum: []}]
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200': {$ref: '#/components/responses/OrderUpdated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/orders/{order}/refund:
+    post:
+      summary: Refund an order
+      security: [{sanctum: []}]
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200': {$ref: '#/components/responses/OrderUpdated'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /api/webhooks/payment:
+    post:
+      summary: Confirm payment and enqueue delivery
+      parameters:
+        - name: X-Signature
+          in: header
+          required: true
+          schema: {type: string}
+          description: Lowercase SHA-256 HMAC of the exact request body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id, reference]
+              properties:
+                order_id: {type: integer, minimum: 1, example: 1}
+                reference: {type: string, example: pg_ref_123}
+      responses:
+        '200': {description: Payment accepted}
+        '401': {description: Invalid signature}
+        '422': {description: Invalid payload}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+components:
+  securitySchemes:
+    sanctum:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, maxLength: 255}
+    OrderId:
+      name: order
+      in: path
+      required: true
+      schema: {type: integer, minimum: 1}
+  schemas:
+    Product:
+      type: object
+      required: [id, name, slug, price_rials, stock]
+      properties:
+        id: {type: integer, example: 1}
+        name: {type: string, example: Apple ID (US Region)}
+        slug: {type: string, example: apple-id-us}
+        price_rials: {type: integer, example: 1999, description: Price in whole Iranian rials; no decimal fraction}
+        stock: {type: integer, minimum: 0, example: 5}
+    Order:
+      type: object
+      required: [id, user_id, product_id, quantity, unit_price_rials, total_rials, status]
+      properties:
+        id: {type: integer, example: 1}
+        user_id: {type: integer, example: 2}
+        product_id: {type: integer, example: 1}
+        quantity: {type: integer, example: 1}
+        unit_price_rials: {type: integer, example: 1999, description: Unit price in whole Iranian rials; no decimal fraction}
+        total_rials: {type: integer, example: 1999, description: Total price in whole Iranian rials; no decimal fraction}
+        status: {type: string, enum: [pending, paid, delivered, failed, cancelled, refunded]}
+        paid_at: {type: string, format: date-time, nullable: true}
+        delivered_at: {type: string, format: date-time, nullable: true}
+        delivery_payload:
+          type: object
+          nullable: true
+          description: Returned only to the owning customer after delivery.
+          additionalProperties: {type: string}
+        created_at: {type: string, format: date-time}
+    OrderResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {$ref: '#/components/schemas/Order'}
+    PaginatedOrders:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/Order'}
+        meta: {type: object}
+  responses:
+    Unauthenticated: {description: Missing or invalid bearer token}
+    Forbidden: {description: Authenticated user is not authorized}
+    NotFound: {description: Resource not found}
+    TooManyRequests: {description: Rate limit exceeded}
+    OrderUpdated:
+      description: Updated order
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/OrderResponse'}

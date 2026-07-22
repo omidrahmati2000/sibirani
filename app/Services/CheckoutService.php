@@ -9,9 +9,12 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CheckoutService
 {
+    public function __construct(private readonly ProductCatalogCache $productCatalogCache) {}
+
     /**
      * @return array{status:int, body:array}
      */
@@ -22,7 +25,7 @@ class CheckoutService
             'quantity' => $quantity,
         ], JSON_THROW_ON_ERROR));
 
-        return DB::transaction(function () use ($user, $productId, $quantity, $idempotencyKey, $requestHash): array {
+        $result = DB::transaction(function () use ($user, $productId, $quantity, $idempotencyKey, $requestHash): array {
             // insertOrIgnore lets concurrent requests race on the unique
             // (user_id, key) constraint without throwing. The subsequent
             // lock makes the loser wait for the winner and then replay its
@@ -68,6 +71,7 @@ class CheckoutService
             }
 
             $product->decrement('stock', $quantity);
+            DB::afterCommit(fn () => $this->productCatalogCache->forget());
 
             $order = Order::create([
                 'user_id' => $user->id,
@@ -89,5 +93,15 @@ class CheckoutService
 
             return ['status' => 201, 'body' => $body];
         });
+
+        Log::channel('structured')->info('checkout.completed', [
+            'user_id' => $user->id,
+            'product_id' => $productId,
+            'quantity' => $quantity,
+            'response_status' => $result['status'],
+            'order_id' => $result['body']['data']['id'] ?? null,
+        ]);
+
+        return $result;
     }
 }

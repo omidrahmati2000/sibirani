@@ -9,6 +9,7 @@ use App\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PaymentWebhookController extends Controller
 {
@@ -34,6 +35,11 @@ class PaymentWebhookController extends Controller
 
             DeliverAccountJob::dispatch($order->id)->afterCommit();
         });
+
+        Log::channel('structured')->info('payment_webhook.accepted', [
+            'order_id' => $data['order_id'],
+            'payment_reference' => $data['reference'],
+        ]);
 
         return response()->json(['message' => 'ok']);
     }

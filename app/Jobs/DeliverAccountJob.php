@@ -7,10 +7,11 @@ use App\Enums\OrderStatus;
 use App\Exceptions\AccountDeliveryFailedException;
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DeliverAccountJob implements ShouldQueue
@@ -47,8 +48,19 @@ class DeliverAccountJob implements ShouldQueue
                 'delivery_payload' => $payload,
                 'delivered_at' => now(),
             ]);
+
+            Log::channel('structured')->info('account_delivery.succeeded', [
+                'order_id' => $this->orderId,
+                'attempt' => $attempt,
+            ]);
         } catch (AccountDeliveryFailedException $exception) {
             $order->update(['delivery_attempts' => $attempt]);
+
+            Log::channel('structured')->warning('account_delivery.failed_attempt', [
+                'order_id' => $this->orderId,
+                'attempt' => $attempt,
+                'will_retry' => $attempt < self::MAX_ATTEMPTS,
+            ]);
 
             throw $exception;
         }
@@ -69,5 +81,10 @@ class DeliverAccountJob implements ShouldQueue
                 'status' => OrderStatus::Failed,
                 'delivery_attempts' => self::MAX_ATTEMPTS,
             ]);
+
+        Log::channel('structured')->error('account_delivery.exhausted', [
+            'order_id' => $this->orderId,
+            'attempts' => self::MAX_ATTEMPTS,
+        ]);
     }
 }

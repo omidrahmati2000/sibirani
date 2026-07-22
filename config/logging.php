@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\ConfigureJsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -71,6 +72,14 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+        ],
+
+        'structured' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/structured.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'tap' => [ConfigureJsonFormatter::class],
         ],
 
         'slack' => [
