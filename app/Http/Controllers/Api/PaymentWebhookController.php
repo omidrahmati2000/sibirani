@@ -32,7 +32,7 @@ class PaymentWebhookController extends Controller
                 'paid_at' => now(),
             ]);
 
-            DeliverAccountJob::dispatch($order->id);
+            DeliverAccountJob::dispatch($order->id)->afterCommit();
         });
 
         return response()->json(['message' => 'ok']);

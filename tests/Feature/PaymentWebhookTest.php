@@ -51,6 +51,32 @@ class PaymentWebhookTest extends TestCase
         Queue::assertNotPushed(DeliverAccountJob::class);
     }
 
+    public function test_duplicate_valid_webhook_does_not_enqueue_a_second_delivery(): void
+    {
+        Queue::fake();
+
+        $order = Order::factory()->create(['status' => OrderStatus::Pending]);
+        [$body, $signature] = $this->sign(['order_id' => $order->id, 'reference' => 'pg_ref_first']);
+
+        $this->call('POST', '/api/webhooks/payment', [], [], [],
+            ['HTTP_X-Signature' => $signature, 'CONTENT_TYPE' => 'application/json'], $body)
+            ->assertOk();
+
+        [$duplicateBody, $duplicateSignature] = $this->sign([
+            'order_id' => $order->id,
+            'reference' => 'pg_ref_duplicate',
+        ]);
+
+        $this->call('POST', '/api/webhooks/payment', [], [], [],
+            ['HTTP_X-Signature' => $duplicateSignature, 'CONTENT_TYPE' => 'application/json'], $duplicateBody)
+            ->assertOk();
+
+        $order->refresh();
+        $this->assertSame(OrderStatus::Paid, $order->status);
+        $this->assertSame('pg_ref_first', $order->payment_reference);
+        Queue::assertPushedTimes(DeliverAccountJob::class, 1);
+    }
+
     public function test_missing_webhook_secret_fails_closed_with_500(): void
     {
         Queue::fake();
