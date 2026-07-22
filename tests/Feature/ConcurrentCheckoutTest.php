@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\CheckoutService;
@@ -52,7 +53,7 @@ class ConcurrentCheckoutTest extends TestCase
                 // Child process: fresh connection, attempt to buy 1 unit.
                 DB::reconnect();
 
-                $resultFile = sys_get_temp_dir() . '/checkout_child_' . getmypid() . '.json';
+                $resultFile = sys_get_temp_dir().'/checkout_child_'.getmypid().'.json';
 
                 $succeeded = false;
                 $status = null;
@@ -86,7 +87,7 @@ class ConcurrentCheckoutTest extends TestCase
             }
 
             $pids[] = $pid;
-            $resultFiles[] = sys_get_temp_dir() . '/checkout_child_' . $pid . '.json';
+            $resultFiles[] = sys_get_temp_dir().'/checkout_child_'.$pid.'.json';
         }
 
         foreach ($pids as $pid) {
@@ -107,7 +108,7 @@ class ConcurrentCheckoutTest extends TestCase
         $this->assertSame(0, $product->stock, 'Stock must never go negative or under-decrement.');
         $this->assertSame(
             $stock,
-            \App\Models\Order::where('product_id', $product->id)->count(),
+            Order::where('product_id', $product->id)->count(),
             'Exactly as many orders as available stock must have been created — no oversell.'
         );
 
